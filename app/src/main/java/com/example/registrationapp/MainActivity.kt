@@ -1,87 +1,129 @@
 package com.example.registrationapp
 
 import android.content.Intent
+import android.net.DnsResolver
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.Toast
+import android.view.View
+import android.widget.*
+import com.example.registrationapp.api.ApiClient
+import com.example.registrationapp.api.ApiClient.buildApiClient
+import com.example.registrationapp.api.ApiInterface
+import com.example.registrationapp.databinding.ActivityMainBinding
+import com.example.registrationapp.models.RegistrationRequest
+import com.example.registrationapp.models.RegistrationResponse
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
+
 
 class MainActivity : AppCompatActivity() {
-    lateinit var etName:EditText
-    lateinit var etDob:EditText
-    lateinit var etIdNo:EditText
-    lateinit var etNationality:EditText
-    lateinit var etPhoneNo:EditText
-    lateinit var etEmail:EditText
-    lateinit var btnRegister:Button
+   lateinit var binding:ActivityMainBinding
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding= ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        castViews()
+        setUpSpinner()
         clickRegister()
 
     }
-    fun castViews(){
+    fun setUpSpinner(){
         //Casting of views
         //R stands for resources
-        etName = findViewById(R.id.etName)
-        etDob = findViewById(R.id.etDate)
-        etIdNo = findViewById(R.id.etIdNo)
-        etNationality = findViewById(R.id.etNationality)
-        etPhoneNo = findViewById(R.id.etPhoneNo)
-        etEmail = findViewById(R.id.etEmail)
-        btnRegister = findViewById(R.id.btnRegister)
+
+        var nationalities= arrayOf("select nationality","Kenyan","Rwandan","South Sudanese","Ugandan")
+        var nationalityAdapter=ArrayAdapter(baseContext,android.R.layout.simple_spinner_item,nationalities)
+        nationalityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spNationality.adapter=nationalityAdapter
 
     }
     fun clickRegister(){
-        btnRegister.setOnClickListener {
-            var name = etName.text.toString()
+        binding.btnRegister.setOnClickListener {
+
+            var error=false
+
+            var name = binding.etName.text.toString()
             if (name.isEmpty()){
-                etName.setError("Name is required")
+                error=true
+                binding.etName.setError("Name is required")
 
             }
-            var dob = etDob.text.toString()
+            var dob = binding.etDob.text.toString()
             if (dob.isEmpty()){
-                etDob.setError("Date is required")
+                error=true
+                binding.etDob.setError("Date is required")
             }
-            var idNo = etIdNo.text.toString()
-            if (idNo.isEmpty()){
-                etIdNo.setError("ID is required")
+            var password = binding.etPassword.text.toString()
+            if (password.isEmpty()){
+                error=true
+                binding.etPassword.setError("ID is required")
             }
 
-            var nationality = etNationality.text.toString()
-            if (nationality.isEmpty()){
-                etNationality.setError("Nationality is required")
+            var nationality = ""
+            if (binding.spNationality.selectedItemPosition!=0){
+                nationality=binding.spNationality.selectedItem.toString()
             }
-            var phone = etPhoneNo.text.toString()
+            else{
+                error=true
+                Toast.makeText(baseContext,"Select nationality",Toast.LENGTH_LONG)
+            }
+
+            var phone = binding.etPhoneNo.text.toString()
             if (phone.isEmpty()){
-                etPhoneNo.setError("Phone number is required")
+                error=true
+                binding.etPhoneNo.setError("Phone number is required")
             }
-            var email = etEmail.text.toString()
+            var email = binding.etEmail.text.toString()
             if (email.isEmpty()){
-                etEmail.setError("Email is required")
+               binding.etEmail.setError("Email is required")
             }
-//            Toast.makeText(baseContext, name, Toast.LENGTH_LONG).show()
-//            Toast.makeText(baseContext, dob, Toast.LENGTH_LONG).show()
-//            Toast.makeText(baseContext, idNo, Toast.LENGTH_LONG).show()
-//            Toast.makeText(baseContext, nationality, Toast.LENGTH_LONG).show()
-//            Toast.makeText(baseContext, phone, Toast.LENGTH_LONG).show()
-//            Toast.makeText(baseContext, email, Toast.LENGTH_LONG).show()
 
-//            var register = Registration(name,dob,idNo,nationality,phone,email)
-//            Toast.makeText(baseContext,register.toString(),Toast.LENGTH_LONG).show()
+            var register = Registration(name,dob,password,nationality,phone,email)
+            if(error!=true) {
+                val intent = Intent(baseContext, LogInActivity::class.java)
+                startActivity(intent)
+            }
+            if (!error){
+                binding.pbRegistration.visibility=View.GONE
+                var regRequest=RegistrationRequest(
+                    name = name,
+                    phoneNumber = phone,
+                    email = email,
+                    dateOfBirth = dob,
+                    nationality=nationality.toUpperCase(),
+                    password = password)
 
-            val intent=Intent(baseContext,CoursesActivity::class.java)
-            startActivity(intent)
+                var retrofit= buildApiClient(ApiInterface::class.java)
+                val request=retrofit.registerStudent(regRequest)
+                request.enqueue(object: Callback<RegistrationResponse>{
+                    override fun onResponse(
+                        call: Call<RegistrationResponse>,
+                        response: Response<RegistrationResponse>
+                    ) {
+                        binding.pbRegistration.visibility=View.VISIBLE
+                       if (response.isSuccessful){
+                           Toast.makeText(baseContext,"Registration successful",Toast.LENGTH_LONG).show()
+                       }
+                        else{
+                            Toast.makeText(baseContext,response.errorBody()?.string(),Toast.LENGTH_LONG).show()
+                       }
+                    }
 
+                    override fun onFailure(call: Call<RegistrationResponse>, t: Throwable) {
+                     Toast.makeText(baseContext,t.message,Toast.LENGTH_LONG).show()
+                        binding.pbRegistration.visibility=View.GONE
+                    }
+                })
 
+            }
 
         }
     }
 }
-data class Registration (var name:String,var dob:String,var IdNo:String,var nationality:String,var phone:String,var email:String)
+data class Registration (var name:String,var dob:String,var IdNo:String,var nationality:String,var phone:String,var email:String) {
+}
 
 
 
